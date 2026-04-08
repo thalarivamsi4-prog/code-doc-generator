@@ -87,6 +87,17 @@ router.get("/", (req, res) => res.render("home", { user: req.session.username })
 router.get("/upload", checkAuth, (req, res) => res.render("upload", { user: req.session.username }));
 router.get("/dashboard", checkAuth, (req, res) => res.render("dashboard", { projects: getStoredProjects(req.session.userId), user: req.session.username }));
 
+router.get("/delete-project/:id", checkAuth, (req, res) => {
+    try {
+        db.prepare("DELETE FROM projects WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
+        db.prepare("DELETE FROM docs WHERE projectId = ? AND userId = ?").run(req.params.id, req.session.userId);
+        res.redirect("/dashboard");
+    } catch (e) {
+        console.error("Delete Error:", e);
+        res.redirect("/dashboard?error=delete_failed");
+    }
+});
+
 router.get("/project/:id", checkAuth, (req, res) => {
     const p = db.prepare("SELECT * FROM projects WHERE id = ? AND userId = ?").get(req.params.id, req.session.userId);
     if (!p) return res.redirect("/dashboard");
