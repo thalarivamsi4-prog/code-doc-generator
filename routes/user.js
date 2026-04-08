@@ -8,18 +8,18 @@ const Database = require("better-sqlite3");
 const AdmZip = require("adm-zip");
 const bcrypt = require("bcryptjs");
 const axios = require("axios");
-const { explainCodeWithAI } = require("../ai"); // NEW AI IMPORT
+const { explainCodeWithAI } = require("../ai");
 
 // Database Initialization (AUTOMATIC)
 const DB_PATH = path.join(__dirname, "../storage/docs.db");
 const db = new Database(DB_PATH);
 
-// Schema Setup (Added ai_explanation column)
+// Schema Setup
 db.prepare(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT, email TEXT)`).run();
 db.prepare(`CREATE TABLE IF NOT EXISTS projects (id TEXT PRIMARY KEY, userId INTEGER, name TEXT, timestamp TEXT, lang TEXT, fileCount INTEGER, totalLines INTEGER)`).run();
 db.prepare(`CREATE TABLE IF NOT EXISTS docs (id TEXT PRIMARY KEY, userId INTEGER, projectId TEXT, fileName TEXT, lang TEXT, timestamp TEXT, functions TEXT, rawCode TEXT, lineCount INTEGER, componentCount INTEGER, aiExplanation TEXT)`).run();
 
-// Migration: Add aiExplanation to docs if missing
+// Migration
 try { db.prepare("ALTER TABLE docs ADD COLUMN aiExplanation TEXT").run(); } catch (e) { }
 
 // Data Helpers
@@ -31,12 +31,10 @@ const getProjectDocs = (projectId) => {
 const storeProject = (p) => db.prepare(`INSERT INTO projects VALUES (?,?,?,?,?,?,?)`).run(p.id, p.userId, p.name, p.timestamp, p.lang, p.fileCount, p.totalLines);
 const storeDoc = (d, u, p) => db.prepare(`INSERT INTO docs VALUES (?,?,?,?,?,?,?,?,?,?,?)`).run(d.id, u, p, d.fileName, d.lang, d.timestamp, JSON.stringify(d.functions), d.rawCode, d.lineCount, d.componentCount, d.aiExplanation);
 
-// --- TEACHER ENGINE v3 (BLENDED WITH OPENAI) ---
-const getTeacherExplanation = (name, type, lineContent) => {
+const getTeacherExplanation = (name, type) => {
     const n = name.toLowerCase();
-    if (n.includes('login') || n.includes('auth')) return "Teacher's Note: This is the 'Security Guard' of your app. It verifies identities.";
-    if (n.includes('save') || n.includes('create')) return "Teacher's Note: This is the 'Memory Record'. It saves new info to your database.";
-    return `Behavioral Insight: Detected a ${type} named '${name}' for modular logic encapsulation.`;
+    if (n.includes('login') || n.includes('auth')) return "Teacher's Note: Security Guard logic.";
+    return `Logic Unit: Detected a ${type} named '${name}'.`;
 };
 
 const analyzeCode = async (code, fileName) => {
@@ -45,13 +43,12 @@ const analyzeCode = async (code, fileName) => {
     lines.forEach((line, index) => {
         let match;
         if ((match = line.match(/(?:async\s+)?function\s+(\w+)\s*\(/)) || (match = line.match(/(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[^=]+)\s*=>/))) {
-            components.push({ name: match[1], line: index + 1, explanation: getTeacherExplanation(match[1], "Function", line) });
+            components.push({ name: match[1], line: index + 1, explanation: getTeacherExplanation(match[1], "Function") });
         } else if (match = line.match(/(?:async\s+)?def\s+(\w+)\s*\(/)) {
-            components.push({ name: match[1], line: index + 1, explanation: getTeacherExplanation(match[1], "Python Method", line) });
+            components.push({ name: match[1], line: index + 1, explanation: getTeacherExplanation(match[1], "Process") });
         }
     });
 
-    // --- CALL OPENAI FOR DEEP SUMMARY ---
     const aiExplanation = await explainCodeWithAI(code, fileName);
 
     return {
@@ -88,14 +85,9 @@ router.get("/upload", checkAuth, (req, res) => res.render("upload", { user: req.
 router.get("/dashboard", checkAuth, (req, res) => res.render("dashboard", { projects: getStoredProjects(req.session.userId), user: req.session.username }));
 
 router.get("/delete-project/:id", checkAuth, (req, res) => {
-    try {
-        db.prepare("DELETE FROM projects WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
-        db.prepare("DELETE FROM docs WHERE projectId = ? AND userId = ?").run(req.params.id, req.session.userId);
-        res.redirect("/dashboard");
-    } catch (e) {
-        console.error("Delete Error:", e);
-        res.redirect("/dashboard?error=delete_failed");
-    }
+    db.prepare("DELETE FROM projects WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
+    db.prepare("DELETE FROM docs WHERE projectId = ? AND userId = ?").run(req.params.id, req.session.userId);
+    res.redirect("/dashboard");
 });
 
 router.get("/project/:id", checkAuth, (req, res) => {
@@ -116,9 +108,9 @@ router.get("/view/:id", checkAuth, (req, res) => {
 
 router.post("/upload", checkAuth, (req, res) => {
     upload.array("codefile", 50)(req, res, async (err) => {
-        if (!req.files) return res.redirect("/upload");
+        if (!req.files || req.files.length === 0) return res.redirect("/upload");
         const pId = Date.now().toString();
-        let totalL = 0, count = 0, firstLang = 'Mixed';
+        let totalL = 0, count = 0, firstLang = 'CODE';
 
         for (const f of req.files) {
             const ext = path.extname(f.originalname).toLowerCase();
@@ -147,16 +139,24 @@ router.post("/upload-github", checkAuth, async (req, res) => {
         const pId = Date.now().toString();
         const r = await axios.get(`${githubUrl.replace(/\/$/, "")}/archive/refs/heads/main.zip`, { responseType: 'arraybuffer' });
         const z = new AdmZip(Buffer.from(r.data));
-        let totalL = 0, count = 0;
-        const entries = z.getEntries().filter(e => !e.isDirectory && ['.js', '.py'].includes(path.extname(e.entryName).toLowerCase()));
+        let totalL = 0, count = 0, firstLang = 'GITHUB';
+
+        const entries = z.getEntries().filter(e => !e.isDirectory && ['.js', '.py', '.java', '.cpp'].includes(path.extname(e.entryName).toLowerCase()));
+
+        // FIXED: Using for...of loop for async/await compatibility
         for (const e of entries) {
-            const d = await analyzeCode(e.getData().toString('utf8'), e.entryName);
-            totalL += d.lineCount; count++;
+            const content = e.getData().toString('utf8');
+            const d = await analyzeCode(content, e.entryName);
+            totalL += d.lineCount; count++; firstLang = d.lang;
             storeDoc(d, req.session.userId, pId);
         }
-        storeProject({ id: pId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: 'GitHub Repository', fileCount: count, totalLines: totalL });
+
+        storeProject({ id: pId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: firstLang, fileCount: count, totalLines: totalL });
         res.redirect(`/project/${pId}`);
-    } catch (e) { res.redirect("/upload?error=github"); }
+    } catch (e) {
+        console.error("Github Error:", e.message);
+        res.redirect("/upload?error=github_failed");
+    }
 });
 
 module.exports = router;
