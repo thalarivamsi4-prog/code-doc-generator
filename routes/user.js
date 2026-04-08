@@ -149,16 +149,38 @@ router.post("/upload", checkAuth, (req, res) => {
 });
 
 router.post("/upload-github", checkAuth, async (req, res) => {
-    const { githubUrl } = req.body;
+    let { githubUrl } = req.body;
+    githubUrl = githubUrl.replace(/\/$/, "").replace(/\.git$/, "");
+
+    const tryDownload = async (branch) => {
+        try {
+            const zipUrl = `${githubUrl}/archive/refs/heads/${branch}.zip`;
+            const r = await axios.get(zipUrl, { responseType: 'arraybuffer' });
+            return r.data;
+        } catch (e) {
+            return null;
+        }
+    };
+
     try {
         const pId = Date.now().toString();
-        const r = await axios.get(`${githubUrl.replace(/\/$/, "")}/archive/refs/heads/main.zip`, { responseType: 'arraybuffer' });
-        const z = new AdmZip(Buffer.from(r.data));
+
+        // Strategy: Try 'main', then 'master'
+        let zipBuffer = await tryDownload("main");
+        if (!zipBuffer) {
+            console.log("Main branch not found, trying Master...");
+            zipBuffer = await tryDownload("master");
+        }
+
+        if (!zipBuffer) {
+            return res.redirect("/upload?error=branch_not_found");
+        }
+
+        const z = new AdmZip(Buffer.from(zipBuffer));
         let totalL = 0, count = 0, firstLang = 'GITHUB';
 
         const entries = z.getEntries().filter(e => !e.isDirectory && ['.js', '.py', '.java', '.cpp'].includes(path.extname(e.entryName).toLowerCase()));
 
-        // FIXED: Using for...of loop for async/await compatibility
         for (const e of entries) {
             const content = e.getData().toString('utf8');
             const d = await analyzeCode(content, e.entryName);
@@ -169,7 +191,7 @@ router.post("/upload-github", checkAuth, async (req, res) => {
         storeProject({ id: pId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: firstLang, fileCount: count, totalLines: totalL });
         res.redirect(`/project/${pId}`);
     } catch (e) {
-        console.error("Github Error:", e.message);
+        console.error("Github Fatal Error:", e.message);
         res.redirect("/upload?error=github_failed");
     }
 });
