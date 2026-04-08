@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | CodeDocGen</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Fira+Code&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <nav class="nav">
+        <a href="/" class="nav-brand"><i class="fa-solid fa-shield-halved"></i> Admin Central</a>
+        <div class="nav-links">
+            <a href="/">Home</a>
+            <a href="/dashboard">Library</a>
+            <a href="/admin">Stats</a>
+        </div>
+    </nav>
+
+    <div class="container glass-card">
+        <h1>Global System Analytics</h1>
+        <p class="subtitle">Mission-critical metrics and system health indicators for the CodeDocGen infrastructure.</p>
+
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 2rem; margin-top: 2rem;">
+            <!-- Stat 1 -->
+            <div class="doc-item" style="text-align: center; border-color: var(--primary);">
+                <i class="fa-solid fa-database" style="color: var(--primary); font-size: 3rem;"></i>
+                <h2 style="font-size: 3rem; margin-top: 1rem;">
+                    <%= stats.totalDocs || 0 %>
+                </h2>
+                <p
+                    style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px;">
+                    Total Indexed Docs</p>
+            </div>
+
+            <!-- Stat 2 -->
+            <div class="doc-item" style="text-align: center; border-color: var(--secondary);">
+                <i class="fa-solid fa-align-left" style="color: var(--secondary); font-size: 3rem;"></i>
+                <h2 style="font-size: 3rem; margin-top: 1rem;">
+                    <%= stats.totalLines || 0 %>
+                </h2>
+                <p
+                    style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px;">
+                    Total Lines Analyzed</p>
+            </div>
+
+            <!-- Stat 3 -->
+            <div class="doc-item" style="text-align: center; border-color: var(--accent);">
+                <i class="fa-solid fa-microchip" style="color: var(--accent); font-size: 3rem;"></i>
+                <h2 style="font-size: 3rem; margin-top: 1rem;">
+                    <%= stats.totalComponents || 0 %>
+                </h2>
+                <p
+                    style="color: var(--text-secondary); text-transform: uppercase; font-size: 0.8rem; letter-spacing: 2px;">
+                    Identified Components</p>
+            </div>
+        </div>
+
+        <div
+            style="margin-top: 4rem; padding: 2rem; background: rgba(0,0,0,0.03); border-radius: 1.5rem; border: 1px solid var(--card-border);">
+            <h3 style="margin-bottom: 2rem;"><i class="fa-solid fa-screwdriver-wrench"></i> Administrative Actions</h3>
+            <div style="display: flex; gap: 2rem;">
+                <div style="flex: 1;">
+                    <h4 style="color: var(--text-primary); margin-bottom: 0.5rem;">Database Maintenance</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Perform a safe
+                        backup or clean up temporary upload files from the local storage.</p>
+                    <button class="btn btn-secondary" disabled>Run Auto-Clean</button>
+                </div>
+                <div style="flex: 1; border-left: 1px solid var(--card-border); padding-left: 2rem;">
+                    <h4 style="color: #ef4444; margin-bottom: 0.5rem;">Danger Zone</h4>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">Permanently wipe
+                        all documentation entries. This action cannot be reversed.</p>
+                    <button class="btn btn-primary" style="background: #ef4444;"
+                        onclick="alert('System Reset requires a high-level override key.')">Factory Reset</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer>
+        <p>CodeDocGen Admin v1.0.0 | Secure Node Infrastructure</p>
+    </footer>
+</body>
+
+</html>
