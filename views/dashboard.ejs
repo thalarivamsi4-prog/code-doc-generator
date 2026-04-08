@@ -18,222 +18,119 @@
             <a href="/">Home</a>
             <a href="/dashboard">Library</a>
             <a href="/upload">Upload</a>
-            <a href="/admin">Analytics</a>
+            <a href="/logout" class="text-secondary small ms-3">Logout</a>
         </div>
     </nav>
 
     <div class="container mt-5">
         <div class="glass-card">
-            <h1>Engineering Hub</h1>
-            <p class="subtitle">Access your automated technical documentation library and system-wide code analytics.
-            </p>
+            <h1>Technical Library</h1>
+            <p class="subtitle">Access your multi-project technical documentation vault and global analytics.</p>
 
-            <!-- Stats Overview -->
             <div class="row g-4 mb-5 text-center">
                 <div class="col-md-4">
                     <div
                         style="padding: 2rem; background: rgba(0,0,0,0.02); border-radius: 2rem; border: 1px solid var(--card-border);">
                         <h2 class="fw-bold mb-0">
-                            <%= docs.length %>
+                            <%= projects.length %>
                         </h2>
-                        <label class="text-secondary small text-uppercase fw-bold">Active Docs</label>
+                        <label class="text-secondary small text-uppercase fw-bold">Projects</label>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div
                         style="padding: 2rem; background: rgba(0,0,0,0.02); border-radius: 2rem; border: 1px solid var(--card-border);">
                         <h2 class="fw-bold mb-0">
-                            <%= docs.reduce((acc, d)=> acc + d.metrics.lineCount, 0) %>
+                            <%= projects.reduce((acc, p)=> acc + p.fileCount, 0) %>
                         </h2>
-                        <label class="text-secondary small text-uppercase fw-bold">Total Lines</label>
+                        <label class="text-secondary small text-uppercase fw-bold">Analyzed Files</label>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div
                         style="padding: 2rem; background: rgba(0,0,0,0.02); border-radius: 2rem; border: 1px solid var(--card-border);">
                         <h2 class="fw-bold mb-0">
-                            <%= docs.reduce((acc, d)=> acc + d.metrics.componentCount, 0) %>
+                            <%= projects.reduce((acc, p)=> acc + p.totalLines, 0).toLocaleString() %>
                         </h2>
-                        <label class="text-secondary small text-uppercase fw-bold">Total Units</label>
+                        <label class="text-secondary small text-uppercase fw-bold">Global Lines</label>
                     </div>
                 </div>
             </div>
 
-            <!-- Recent Activity -->
-            <% if (docs.length> 0) { %>
-                <div class="mb-5">
-                    <h6 class="text-uppercase small fw-bold text-muted mb-4 letter-spacing-1">Recent Intakes</h6>
-                    <div class="row g-3">
-                        <% docs.slice(0, 3).forEach(doc=> { %>
-                            <div class="col-md-4">
-                                <a href="/view/<%= doc.id %>" class="text-decoration-none">
-                                    <div class="glass-card"
-                                        style="padding: 1.5rem; margin-bottom: 0; background: rgba(255,255,255,0.4);">
-                                        <div class="d-flex align-items-center gap-3">
-                                            <div
-                                                style="background: var(--primary-glow); color: var(--primary); width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center;">
-                                                <i class="fa-solid fa-clock-rotate-left"></i>
-                                            </div>
-                                            <div>
-                                                <p class="mb-0 fw-bold text-dark text-truncate"
-                                                    style="max-width: 150px;">
-                                                    <%= doc.fileName %>
-                                                </p>
-                                                <small class="text-muted">
-                                                    <%= doc.timestamp.split(',')[0] %>
-                                                </small>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </a>
-                            </div>
-                            <% }) %>
-                    </div>
-                </div>
-                <% } %>
-
-                    <!-- Charts Container -->
-                    <div class="row g-4">
-                        <div class="col-lg-8">
-                            <div
-                                style="background: #fff; padding: 2rem; border-radius: 2rem; border: 1px solid var(--card-border); height: 100%;">
-                                <h6 class="fw-bold mb-4">Module Complexity Graph</h6>
-                                <canvas id="complexityChart" height="150"></canvas>
-                            </div>
-                        </div>
-                        <div class="col-lg-4">
-                            <div
-                                style="background: #fff; padding: 2rem; border-radius: 2rem; border: 1px solid var(--card-border); height: 100%;">
-                                <h6 class="fw-bold mb-4">Stack Distribution</h6>
-                                <canvas id="langChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-        </div>
-
-        <!-- Search & Filter -->
-        <div class="glass-card mb-4" style="padding: 2rem;">
-            <div class="row g-3 align-items-center">
-                <div class="col-md-6">
-                    <div class="input-group">
-                        <span class="input-group-text bg-transparent border-end-0"
-                            style="border-radius: 1rem 0 0 1rem;">
-                            <i class="fa-solid fa-magnifying-glass text-muted"></i>
-                        </span>
-                        <input type="text" id="searchInput" class="form-control border-start-0 py-3"
-                            placeholder="Search by filename or component..." style="border-radius: 0 1rem 1rem 0;"
-                            onkeyup="filterDocs()">
-                    </div>
-                </div>
-                <div class="col-md-6 d-flex gap-2 justify-content-md-end">
-                    <button class="btn btn-secondary py-2 px-3 fw-bold active-filter"
-                        onclick="setFilter('all', this)">All</button>
-                    <button class="btn btn-secondary py-2 px-3 fw-bold"
-                        onclick="setFilter('javascript', this)">JS</button>
-                    <button class="btn btn-secondary py-2 px-3 fw-bold"
-                        onclick="setFilter('python', this)">Python</button>
-                    <button class="btn btn-secondary py-2 px-3 fw-bold" onclick="setFilter('java', this)">Java</button>
-                </div>
+            <div id="analyticsSection"
+                style="background: #fff; padding: 2rem; border-radius: 2rem; border: 1px solid var(--card-border);">
+                <h6 class="fw-bold mb-4">Complexity Distribution</h6>
+                <canvas id="complexityChart" height="100"></canvas>
             </div>
         </div>
 
-        <!-- Document List -->
-        <h3 class="fw-bold mb-4 px-3"><i class="fa-solid fa-book-bookmark text-primary"></i> Stored Documentation</h3>
-        <div class="dash-grid" id="docsContainer">
-            <% docs.forEach(doc=> { %>
-                <div class="doc-item" data-lang="<%= doc.lang.toLowerCase() %>"
-                    data-name="<%= doc.fileName.toLowerCase() %>">
+        <h3 class="fw-bold mb-4 px-3"><i class="fa-solid fa-folder-tree text-primary me-2"></i> Active Projects</h3>
+
+        <div class="dash-grid">
+            <% projects.forEach(project=> { %>
+                <div class="doc-item">
                     <div class="d-flex justify-content-between align-items-center mb-4">
-                        <span class="lang-tag"
-                            style="background: var(--primary-glow); color: var(--primary); padding: 0.35rem 1rem; border-radius: 2rem; font-size: 0.75rem; font-weight: 700; text-transform: uppercase;">
-                            <%= doc.lang %>
+                        <span class="lang-tag" style="background: var(--primary-glow); color: var(--primary);">
+                            <%= project.lang %>
                         </span>
                         <small class="text-muted">
-                            <%= doc.timestamp %>
+                            <%= project.timestamp.split(',')[0] %>
                         </small>
                     </div>
                     <h5 class="fw-bold text-truncate mb-2">
-                        <%= doc.fileName %>
+                        <%= project.name %>
                     </h5>
-                    <p class="text-secondary small mb-4">Analyzed unit count: <strong>
-                            <%= doc.metrics.componentCount %>
+                    <p class="text-secondary small mb-4">Total Assets: <strong>
+                            <%= project.fileCount %>
+                        </strong> | Complexity: <strong>
+                            <%= project.totalLines.toLocaleString() %> LOC
                         </strong></p>
+
                     <div class="d-flex gap-2">
-                        <a href="/view/<%= doc.id %>" class="btn btn-primary flex-grow-1 py-2">Open Report</a>
-                        <a href="/delete/<%= doc.id %>" class="btn btn-outline-danger px-3"
-                            onclick="return confirm('Archive this report?')">
+                        <a href="/project/<%= project.id %>" class="btn btn-primary flex-grow-1 py-2">Open Project
+                            Hub</a>
+                        <a href="/delete-project/<%= project.id %>" class="btn btn-outline-danger px-3"
+                            onclick="return confirm('Archive this entire project?')">
                             <i class="fa-solid fa-trash-can"></i>
                         </a>
-                        <a href="/download-pdf/<%= doc.id %>" class="btn btn-secondary px-3"><i
-                                class="fa-solid fa-file-pdf"></i></a>
                     </div>
                 </div>
                 <% }) %>
+
+                    <% if (projects.length===0) { %>
+                        <div class="col-12 text-center py-5 glass-card" style="border: 2px dashed #94a3b8;">
+                            <i class="fa-solid fa-box-open mb-3" style="font-size: 4rem; color: #cbd5e1;"></i>
+                            <h5 class="text-muted">Your vault is currently empty.</h5>
+                            <a href="/upload" class="btn btn-primary mt-3">Upload your first project</a>
+                        </div>
+                        <% } %>
         </div>
     </div>
 
     <footer>
-        <p>Built with <i class="fa-solid fa-heart" style="color: #ef4444;"></i> for the Developer Community</p>
+        <p>Verified Technical Library &copy; 2026 CodeDocGen</p>
     </footer>
 
     <script>
-        let currentLangFilter = 'all';
-
-        function setFilter(lang, btn) {
-            currentLangFilter = lang;
-            document.querySelectorAll('.active-filter').forEach(el => el.classList.remove('active-filter', 'btn-primary'));
-            btn.classList.add('active-filter', 'btn-primary');
-            filterDocs();
-        }
-
-        function filterDocs() {
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            const items = document.querySelectorAll('.doc-item');
-
-            items.forEach(item => {
-                const name = item.getAttribute('data-name');
-                const lang = item.getAttribute('data-lang');
-
-                const matchesSearch = name.includes(query);
-                const matchesFilter = currentLangFilter === 'all' || lang === currentLangFilter;
-
-                if (matchesSearch && matchesFilter) {
-                    item.style.display = 'block';
-                } else {
-                    item.style.display = 'none';
-                }
+        const projectData = <% - JSON.stringify(projects.slice(0, 10)) %>;
+        if (projectData.length > 0) {
+            new Chart(document.getElementById('complexityChart'), {
+                type: 'line',
+                data: {
+                    labels: projectData.map(p => p.name.substring(0, 15)),
+                    datasets: [{
+                        label: 'Lines of Code',
+                        data: projectData.map(p => p.totalLines),
+                        borderColor: '#d97706',
+                        backgroundColor: 'rgba(217, 119, 6, 0.05)',
+                        fill: true, tension: 0.4
+                    }]
+                },
+                options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
             });
+        } else {
+            document.getElementById('analyticsSection').style.display = 'none';
         }
-
-        const docData = <% - JSON.stringify(docs.slice(0, 10)) %>;
-        new Chart(document.getElementById('complexityChart'), {
-            type: 'line',
-            data: {
-                labels: docData.map(d => d.fileName.substring(0, 10)),
-                datasets: [{
-                    label: 'Lines',
-                    data: docData.map(d => d.metrics.lineCount),
-                    borderColor: '#d97706',
-                    backgroundColor: 'rgba(217, 119, 6, 0.05)',
-                    fill: true, tension: 0.4
-                }]
-            },
-            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
-        });
-
-        const langs = {};
-        <% - JSON.stringify(docs) %>.forEach(d => langs[d.lang] = (langs[d.lang] || 0) + 1);
-        new Chart(document.getElementById('langChart'), {
-            type: 'doughnut',
-            data: {
-                labels: Object.keys(langs),
-                datasets: [{
-                    data: Object.values(langs),
-                    backgroundColor: ['#d97706', '#f59e0b', '#16a34a', '#0ea5e9']
-                }]
-            },
-            options: { cutout: '70%', plugins: { legend: { position: 'bottom' } } }
-        });
     </script>
 </body>
 

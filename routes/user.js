@@ -13,7 +13,7 @@ const axios = require("axios");
 const DB_PATH = path.join(__dirname, "../storage/docs.db");
 const db = new Database(DB_PATH);
 
-// Create Tables
+// --- UPDATED SCHEMA FOR PROJECT GROUPING ---
 db.prepare(`
     CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -24,9 +24,22 @@ db.prepare(`
 `).run();
 
 db.prepare(`
+    CREATE TABLE IF NOT EXISTS projects (
+        id TEXT PRIMARY KEY,
+        userId INTEGER,
+        name TEXT,
+        timestamp TEXT,
+        lang TEXT,
+        fileCount INTEGER,
+        totalLines INTEGER
+    )
+`).run();
+
+db.prepare(`
     CREATE TABLE IF NOT EXISTS docs (
         id TEXT PRIMARY KEY,
         userId INTEGER,
+        projectId TEXT,
         fileName TEXT,
         lang TEXT,
         timestamp TEXT,
@@ -37,6 +50,9 @@ db.prepare(`
     )
 `).run();
 
+// Migration: Add projectId if missing
+try { db.prepare("ALTER TABLE docs ADD COLUMN projectId TEXT").run(); } catch (e) { }
+
 // Auth Middleware
 const checkAuth = (req, res, next) => {
     if (req.session.userId) next();
@@ -44,23 +60,27 @@ const checkAuth = (req, res, next) => {
 };
 
 // Data Helpers
-const getStoredDocs = (userId) => {
-    const rows = db.prepare("SELECT * FROM docs WHERE userId = ? ORDER BY timestamp DESC").all(userId);
-    return rows.map(row => ({
-        ...row,
-        functions: JSON.parse(row.functions),
-        metrics: { lineCount: row.lineCount, componentCount: row.componentCount }
-    }));
+const getStoredProjects = (userId) => {
+    return db.prepare("SELECT * FROM projects WHERE userId = ? ORDER BY timestamp DESC").all(userId);
 };
 
-const storeDoc = (doc, userId) => {
+const getProjectDocs = (projectId) => {
+    const rows = db.prepare("SELECT * FROM docs WHERE projectId = ? ORDER BY fileName").all(projectId);
+    return rows.map(r => ({ ...r, functions: JSON.parse(r.functions), metrics: { lineCount: r.lineCount, componentCount: r.componentCount } }));
+};
+
+const storeProject = (proj) => {
+    db.prepare(`INSERT INTO projects (id, userId, name, timestamp, lang, fileCount, totalLines) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(proj.id, proj.userId, proj.name, proj.timestamp, proj.lang, proj.fileCount, proj.totalLines);
+};
+
+const storeDoc = (doc, userId, projectId) => {
     db.prepare(`
-        INSERT INTO docs (id, userId, fileName, lang, timestamp, functions, rawCode, lineCount, componentCount)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(doc.id, userId, doc.fileName, doc.lang, doc.timestamp, JSON.stringify(doc.functions), doc.rawCode, doc.metrics.lineCount, doc.metrics.componentCount);
+        INSERT INTO docs (id, userId, projectId, fileName, lang, timestamp, functions, rawCode, lineCount, componentCount)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(doc.id, userId, projectId, doc.fileName, doc.lang, doc.timestamp, JSON.stringify(doc.functions), doc.rawCode, doc.metrics.lineCount, doc.metrics.componentCount);
 };
 
-// Analysis Logic
+// Analysis Logic (Smart)
 const getExplanation = (name, type) => {
     const n = name.toLowerCase();
     if (n.includes('login') || n.includes('auth')) return "Handles security credentials and manages user session authentication logic.";
@@ -84,65 +104,38 @@ const analyzeCode = (code, fileName) => {
         }
     });
     const ext = fileName.split('.').pop().toLowerCase();
-    return { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName, lang: ext === 'js' ? 'javascript' : ext === 'py' ? 'python' : ext, timestamp: new Date().toLocaleString(), functions: components, rawCode: code, metrics: { lineCount: lines.length, componentCount: components.length } };
+    const lang = ext === 'js' ? 'javascript' : ext === 'py' ? 'python' : ext;
+    return { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName, lang, timestamp: new Date().toLocaleString(), functions: components, rawCode: code, metrics: { lineCount: lines.length, componentCount: components.length } };
 };
 
-const upload = multer({
-    storage: multer.diskStorage({
-        destination: "uploads/",
-        filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
-    }),
-    fileFilter: (req, file, cb) => {
-        const allowed = ['.js', '.py', '.java', '.cpp', '.html', '.css', '.zip', '.png', '.jpg', '.jpeg', '.gif', '.svg'];
-        cb(null, allowed.includes(path.extname(file.originalname).toLowerCase()));
-    },
-    limits: { fileSize: 10 * 1024 * 1024 }
-});
+const upload = multer({ dest: "uploads/", limits: { fileSize: 10 * 1024 * 1024 } });
 
-// --- AUTH ROUTES ---
+// --- AUTH & CORE ROUTES ---
 router.get("/login", (req, res) => res.render("login", { error: null }));
 router.get("/register", (req, res) => res.render("register", { error: null }));
-
 router.post("/register", (req, res) => {
-    const { username, email, password } = req.body;
-    try {
-        const hash = bcrypt.hashSync(password, 10);
-        db.prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)").run(username, email, hash);
-        res.redirect("/login");
-    } catch (e) { res.render("register", { error: "Username already exists." }); }
+    try { const hash = bcrypt.hashSync(req.body.password, 10); db.prepare("INSERT INTO users (username, email, password) VALUES (?, ?, ?)").run(req.body.username, req.body.email, hash); res.redirect("/login"); }
+    catch (e) { res.render("register", { error: "Username taken." }); }
 });
-
 router.post("/login", (req, res) => {
-    const { username, password } = req.body;
-    const user = db.prepare("SELECT * FROM users WHERE username = ?").get(username);
-    if (user && bcrypt.compareSync(password, user.password)) {
-        req.session.userId = user.id;
-        req.session.username = user.username;
-        res.redirect("/dashboard");
-    } else { res.render("login", { error: "Invalid credentials." }); }
+    const user = db.prepare("SELECT * FROM users WHERE username = ?").get(req.body.username);
+    if (user && bcrypt.compareSync(req.body.password, user.password)) { req.session.userId = user.id; req.session.username = user.username; res.redirect("/dashboard"); }
+    else res.render("login", { error: "Invalid credentials." });
 });
-
-router.get("/logout", (req, res) => {
-    req.session.destroy();
-    res.redirect("/");
-});
-
-// --- CORE ROUTES ---
+router.get("/logout", (req, res) => { req.session.destroy(); res.redirect("/"); });
 router.get("/", (req, res) => res.render("home", { user: req.session.username }));
-
 router.get("/upload", checkAuth, (req, res) => res.render("upload", { user: req.session.username }));
 
-router.get("/admin", (req, res) => {
-    const stats = db.prepare("SELECT COUNT(*) as totalDocs, SUM(lineCount) as totalLines, SUM(componentCount) as totalComponents FROM docs").get();
-    res.render("admin", { stats: stats || { totalDocs: 0, totalLines: 0, totalComponents: 0 }, user: req.session.username });
+router.get("/dashboard", checkAuth, (req, res) => {
+    res.render("dashboard", { projects: getStoredProjects(req.session.userId), user: req.session.username });
 });
 
-router.get("/delete/:id", checkAuth, (req, res) => {
-    db.prepare("DELETE FROM docs WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
-    res.redirect("/dashboard");
+router.get("/project/:id", checkAuth, (req, res) => {
+    const project = db.prepare("SELECT * FROM projects WHERE id = ? AND userId = ?").get(req.params.id, req.session.userId);
+    if (!project) return res.redirect("/dashboard");
+    const docs = getProjectDocs(project.id);
+    res.render("project_hub", { project, docs, user: req.session.username });
 });
-
-router.get("/dashboard", checkAuth, (req, res) => res.render("dashboard", { docs: getStoredDocs(req.session.userId), user: req.session.username }));
 
 router.get("/view/:id", checkAuth, (req, res) => {
     const row = db.prepare("SELECT * FROM docs WHERE id = ? AND userId = ?").get(req.params.id, req.session.userId);
@@ -150,109 +143,74 @@ router.get("/view/:id", checkAuth, (req, res) => {
     else res.redirect("/dashboard");
 });
 
-router.get("/download-pdf/:id", checkAuth, (req, res) => {
-    const row = db.prepare("SELECT * FROM docs WHERE id = ? AND userId = ?").get(req.params.id, req.session.userId);
-    if (!row) return res.redirect("/dashboard");
-    const doc = { ...row, functions: JSON.parse(row.functions), metrics: { lineCount: row.lineCount, componentCount: row.componentCount } };
-    const pdfPath = path.join(__dirname, `../uploads/doc_${doc.id}.pdf`);
-    const pdfDoc = new PDFDocument({ margin: 50 });
-    res.setHeader("Content-Type", "application/pdf");
-    pdfDoc.pipe(fs.createWriteStream(pdfPath)).on("finish", () => res.download(pdfPath));
-    pdfDoc.fillColor("#d97706").fontSize(25).text("CodeDocGen Official Report", { align: "center" }).moveDown();
-    pdfDoc.fillColor("#1e293b").fontSize(12).text(`User: ${req.session.username}\nProject: ${doc.fileName}\nCreated: ${doc.timestamp}\nMetrics: ${doc.metrics.lineCount} Lines | ${doc.metrics.componentCount} Units`);
-    pdfDoc.moveDown().fillColor("#d97706").fontSize(18).text("Analysis Breakdown").moveDown(0.5);
-    doc.functions.forEach(f => {
-        pdfDoc.fillColor("#0f172a").fontSize(12).text(f.name, { underline: true });
-        pdfDoc.fillColor("#475569").fontSize(10).text(`Line ${f.line}: ${f.explanation}`).moveDown();
-    });
-    pdfDoc.addPage().fillColor("#d97706").fontSize(18).text("Source Code").moveDown();
-    pdfDoc.fillColor("#000000").fontSize(8).font("Courier").text(doc.rawCode);
-    pdfDoc.end();
+router.get("/delete-project/:id", checkAuth, (req, res) => {
+    db.prepare("DELETE FROM projects WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
+    db.prepare("DELETE FROM docs WHERE projectId = ? AND userId = ?").run(req.params.id, req.session.userId);
+    res.redirect("/dashboard");
 });
 
 router.post("/upload", checkAuth, (req, res) => {
-    upload.array("codefile", 20)(req, res, async (err) => {
-        if (err || !req.files) return res.redirect("/upload");
+    upload.array("codefile", 50)(req, res, async (err) => {
+        if (!req.files || req.files.length === 0) return res.redirect("/upload");
+        const projectId = Date.now().toString();
         const filesToProcess = [];
 
         for (const file of req.files) {
             const ext = path.extname(file.originalname).toLowerCase();
-            const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
-
             if (ext === '.zip') {
                 const zip = new AdmZip(file.path);
                 zip.getEntries().forEach(e => {
                     const innerExt = path.extname(e.entryName).toLowerCase();
-                    const isCode = ['.js', '.py', '.java', '.cpp', '.html', '.css', '.zip'].includes(innerExt);
-                    const isImage = imageExts.includes(innerExt);
-
-                    if (!e.isDirectory && (isCode || isImage)) {
-                        filesToProcess.push({
-                            name: e.entryName,
-                            content: isImage ? null : e.getData().toString('utf8'),
-                            type: isImage ? 'image' : 'code'
-                        });
-                    }
+                    if (!e.isDirectory && ['.js', '.py', '.java', '.cpp', '.html', '.css'].includes(innerExt))
+                        filesToProcess.push({ name: e.entryName, content: e.getData().toString('utf8'), type: 'code' });
                 });
-            } else if (imageExts.includes(ext)) {
-                filesToProcess.push({
-                    name: file.originalname,
-                    type: 'image',
-                    path: "/uploads/" + file.filename
-                });
+            } else if (['.png', '.jpg', '.svg'].includes(ext)) {
+                filesToProcess.push({ name: file.originalname, type: 'image', path: "/uploads/" + file.filename });
             } else {
-                filesToProcess.push({
-                    name: file.originalname,
-                    type: 'code',
-                    content: fs.readFileSync(file.path, 'utf8')
-                });
+                filesToProcess.push({ name: file.originalname, type: 'code', content: fs.readFileSync(file.path, 'utf8') });
             }
         }
 
+        let totalLines = 0;
         for (const f of filesToProcess) {
-            if (f.type === 'image') {
-                const doc = { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName: f.name, lang: 'image', timestamp: new Date().toLocaleString(), functions: [], rawCode: f.path || "Asset in ZIP", metrics: { lineCount: 0, componentCount: 0 } };
-                storeDoc(doc, req.session.userId);
-            } else {
+            if (f.type === 'code') {
                 const data = analyzeCode(f.content, f.name);
-                storeDoc(data, req.session.userId);
+                totalLines += data.metrics.lineCount;
+                storeDoc(data, req.session.userId, projectId);
+            } else {
+                const doc = { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName: f.name, lang: 'image', timestamp: new Date().toLocaleString(), functions: [], rawCode: f.path || "Asset in ZIP", metrics: { lineCount: 0, componentCount: 0 } };
+                storeDoc(doc, req.session.userId, projectId);
             }
         }
-        res.redirect("/dashboard");
+
+        storeProject({ id: projectId, userId: req.session.userId, name: req.files[0].originalname, timestamp: new Date().toLocaleString(), lang: filesToProcess[0].lang || 'mixed', fileCount: filesToProcess.length, totalLines });
+        res.redirect(`/project/${projectId}`);
     });
 });
 
 router.post("/upload-github", checkAuth, async (req, res) => {
     const { githubUrl } = req.body;
     try {
-        const baseUrl = githubUrl.replace(/\/$/, "");
-        const zipUrl = `${baseUrl}/archive/refs/heads/main.zip`;
-
-        const response = await axios.get(zipUrl, { responseType: 'arraybuffer' });
+        const projectId = Date.now().toString();
+        const response = await axios.get(`${githubUrl.replace(/\/$/, "")}/archive/refs/heads/main.zip`, { responseType: 'arraybuffer' });
         const zip = new AdmZip(Buffer.from(response.data));
         const entries = zip.getEntries();
-        const imageExts = ['.png', '.jpg', '.jpeg', '.gif', '.svg'];
+        let totalLines = 0;
+        let count = 0;
 
         for (const e of entries) {
             const innerExt = path.extname(e.entryName).toLowerCase();
-            const isCode = ['.js', '.py', '.java', '.cpp', '.html', '.css', '.zip'].includes(innerExt);
-            const isImage = imageExts.includes(innerExt);
-
-            if (!e.isDirectory && (isCode || isImage)) {
-                if (isImage) {
-                    const doc = { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName: e.entryName, lang: 'image', timestamp: new Date().toLocaleString(), functions: [], rawCode: "Asset from GitHub", metrics: { lineCount: 0, componentCount: 0 } };
-                    await storeDoc(doc, req.session.userId);
-                } else {
-                    const content = e.getData().toString('utf8');
-                    const data = analyzeCode(content, e.entryName);
-                    await storeDoc(data, req.session.userId);
-                }
+            if (!e.isDirectory && ['.js', '.py', '.java', '.cpp'].includes(innerExt)) {
+                const content = e.getData().toString('utf8');
+                const data = analyzeCode(content, e.entryName);
+                totalLines += data.metrics.lineCount;
+                storeDoc(data, req.session.userId, projectId);
+                count++;
             }
         }
-        res.redirect("/dashboard");
-    } catch (e) {
-        res.redirect("/upload?error=github_failed");
-    }
+        storeProject({ id: projectId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: 'GitHub Repo', fileCount: count, totalLines });
+        res.redirect(`/project/${projectId}`);
+    } catch (e) { res.redirect("/upload?error=github"); }
 });
 
 module.exports = router;
