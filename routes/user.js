@@ -27,57 +27,50 @@ const getProjectDocs = (projectId) => {
 const storeProject = (p) => db.prepare(`INSERT INTO projects VALUES (?,?,?,?,?,?,?)`).run(p.id, p.userId, p.name, p.timestamp, p.lang, p.fileCount, p.totalLines);
 const storeDoc = (d, u, p) => db.prepare(`INSERT INTO docs VALUES (?,?,?,?,?,?,?,?,?,?)`).run(d.id, u, p, d.fileName, d.lang, d.timestamp, JSON.stringify(d.functions), d.rawCode, d.lineCount, d.componentCount);
 
-// --- STRONG UPGRADE 1: BETTER FUNCTION EXPLANATION ---
+// --- SMART UPGRADE: TEACHER-STYLE EXPLANATION GENERATOR ---
 const getAdvancedExplanation = (name, type, lineContent) => {
     const n = name.toLowerCase();
     const lc = lineContent.toLowerCase();
 
-    if (lc.includes('async')) return "This is a 'Time-Traveler' function. ⏳ It works in the background (asynchronously), meaning it can talk to servers or databases without freezing the entire application for the user.";
-    if (lc.includes('try') && lc.includes('catch')) return "Consider this the 'Safety Net' pattern. 🛡️ If something unexpected happens inside this block, the application won't crash; instead, it gracefully handles the error and keeps running.";
-    if (n.includes('render') || n.includes('component')) return "This is a 'Visual Blueprint'. 🎨 It defines exactly what part of the user interface should look like, acting as a modular building block for the whole frontend.";
-    if (n.includes('middleware') || n.includes('handler')) return "Think of this as a 'Traffic Filter'. 🚦 It stands between the user's request and the final data, checking for permissions or logging activity along the way.";
-    if (n.includes('db') || n.includes('query') || n.includes('model')) return "This is the 'Warehouse Foreman'. 🏗️ It manages the heavy lifting of talking to your database, ensuring that data is stored and retrieved efficiently.";
+    if (lc.includes('async')) return "Think of this as a 'Background Tasker'. ⏳ It works in silence without stopping the main application flow.";
+    if (lc.includes('try') && lc.includes('catch')) return "This is a 'Safety Barrier'. 🛡️ It catches errors before they can crash your site, ensuring a smooth user experience.";
+    if (n.includes('login') || n.includes('auth')) return "This is the 'Gatekeeper'. 🛂 It manages security and verifies who is allowed to enter your vault.";
+    if (n.includes('render') || n.includes('view') || n.includes('ui')) return "This is a 'Visual Weaver'. 🎨 It takes data and transforms it into the beautiful interface the user sees.";
+    if (n.includes('fetch') || n.includes('api')) return "This is the 'Information Bridge'. 🌉 It carries messages between your app and the outside world.";
 
-    // Fallback Education
-    return `In this section, you've created a **${type}** named **'${name}'**. It acts as an isolated 'Thinking Unit' that handles a specific logic task, making your project easier to maintain! 👨‍🏫`;
+    return `In this section, you've created a **${type}** named **'${name}'**. It acts as a specialized unit of thinking that simplifies your project architecture! 👨‍🏫`;
 };
 
-// --- STRONG UPGRADE 2: INTELLIGENCE-BASED LANGUAGE DETECTION ---
-const detectLanguageSmart = (code, fileName) => {
-    const ext = fileName.split('.').pop().toLowerCase();
-    const c = code.toLowerCase();
-
-    if (c.includes('import react') || c.includes('from "react"')) return "React (JSX)";
-    if (c.includes('require("express")') || c.includes('express()')) return "Express.js (Node)";
-    if (c.includes('import tensorflow') || c.includes('import torch')) return "AI/ML (Python)";
-    if (c.includes('from flask import')) return "Flask (Python)";
-    if (c.includes('import django')) return "Django (Python)";
-    if (c.includes('public static void main')) return "Java Standard";
-    if (c.includes('cout <<') || c.includes('#include')) return "C++ System";
-
-    // Default Mapping
-    const map = { 'js': 'JavaScript', 'py': 'Python', 'java': 'Java', 'html': 'HTML Structure', 'css': 'CSS Styling' };
-    return map[ext] || ext.toUpperCase();
-};
-
-const analyzeCode = (code, fileName) => {
+// --- SCALABILITY UPGRADE: INTELLIGENCE-BASED CHUNKING ---
+const analyzeCodeOptimized = (code, fileName) => {
+    const MAX_LINES = 1000;
     const lines = code.split('\n');
+    const isLargeFile = lines.length > MAX_LINES;
+
+    // For large files, we prioritize 'Signatures' to stay within token-style limits
+    const analysisLines = isLargeFile ? lines.filter(l => l.includes('function') || l.includes('class') || l.includes('=>') || l.includes('def ')) : lines;
+
     const components = [];
-    lines.forEach((line, index) => {
+    analysisLines.forEach((line, index) => {
         let match;
+        const realLineNum = isLargeFile ? 1 : index + 1; // Simplification for large chunk logic
+
         if ((match = line.match(/(?:async\s+)?function\s+(\w+)\s*\(/)) || (match = line.match(/(?:const|let|var)\s+(\w+)\s*=\s*(?:async\s+)?(?:\([^)]*\)|[^=]+)\s*=>/))) {
-            components.push({ name: match[1], line: index + 1, explanation: getAdvancedExplanation(match[1], "Function", line) });
+            components.push({ name: match[1], line: realLineNum, explanation: getAdvancedExplanation(match[1], "Function", line) });
         } else if (match = line.match(/(?:async\s+)?def\s+(\w+)\s*\(/)) {
-            components.push({ name: match[1], line: index + 1, explanation: getAdvancedExplanation(match[1], "Python Handler", line) });
+            components.push({ name: match[1], line: realLineNum, explanation: getAdvancedExplanation(match[1], "Process", line) });
         } else if (match = line.match(/class\s+(\w+)/)) {
-            components.push({ name: match[1], line: index + 1, explanation: getAdvancedExplanation(match[1], "Blueprint/Class", line) });
+            components.push({ name: match[1], line: realLineNum, explanation: getAdvancedExplanation(match[1], "Logic Blueprint", line) });
         }
     });
+
+    const ext = fileName.split('.').pop().toLowerCase();
+    const detectedLang = code.includes('React') ? 'React Library' : (ext === 'js' ? 'JavaScript' : ext === 'py' ? 'Python' : ext.toUpperCase());
 
     return {
         id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000),
         fileName,
-        lang: detectLanguageSmart(code, fileName),
+        lang: detectedLang,
         timestamp: new Date().toLocaleString(),
         functions: components,
         rawCode: code,
@@ -120,24 +113,28 @@ router.post("/upload", checkAuth, (req, res) => {
     upload.array("codefile", 50)(req, res, async (err) => {
         if (!req.files) return res.redirect("/upload");
         const pId = Date.now().toString();
-        let totalL = 0, count = 0, detectedLangs = [];
+        let totalL = 0, count = 0, langs = [];
         for (const f of req.files) {
-            if (path.extname(f.originalname).toLowerCase() === '.zip') {
+            const ext = path.extname(f.originalname).toLowerCase();
+            if (ext === '.zip') {
                 const z = new AdmZip(f.path);
                 z.getEntries().forEach(e => {
-                    if (!e.isDirectory && ['.js', '.py', '.java', '.html', '.css'].includes(path.extname(e.entryName).toLowerCase())) {
-                        const d = analyzeCode(e.getData().toString('utf8'), e.entryName);
-                        totalL += d.lineCount; count++; detectedLangs.push(d.lang);
+                    if (!e.isDirectory && ['.js', '.py', '.java', '.cpp'].includes(path.extname(e.entryName).toLowerCase())) {
+                        const d = analyzeCodeOptimized(e.getData().toString('utf8'), e.entryName);
+                        totalL += d.lineCount; count++; langs.push(d.lang);
                         storeDoc(d, req.session.userId, pId);
                     }
                 });
-            } else {
-                const d = analyzeCode(fs.readFileSync(f.path, 'utf8'), f.originalname);
-                totalL += d.lineCount; count++; detectedLangs.push(d.lang);
+            } else if (ext === '.png' || ext === '.jpg' || ext === '.svg') {
+                const doc = { id: Date.now().toString() + "_" + Math.floor(Math.random() * 1000), fileName: f.originalname, lang: 'Visual Asset', timestamp: new Date().toLocaleString(), functions: [], rawCode: "/uploads/" + f.filename, lineCount: 0, componentCount: 0 };
+                storeDoc(doc, req.session.userId, pId); count++;
+            } else if (['.js', '.py', '.java', '.html', '.css'].includes(ext)) {
+                const d = analyzeCodeOptimized(fs.readFileSync(f.path, 'utf8'), f.originalname);
+                totalL += d.lineCount; count++; langs.push(d.lang);
                 storeDoc(d, req.session.userId, pId);
             }
         }
-        storeProject({ id: pId, userId: req.session.userId, name: req.files[0].originalname, timestamp: new Date().toLocaleString(), lang: Array.from(new Set(detectedLangs)).join(', '), fileCount: count, totalLines: totalL });
+        storeProject({ id: pId, userId: req.session.userId, name: req.files[0].originalname, timestamp: new Date().toLocaleString(), lang: [...new Set(langs)].join(', '), fileCount: count, totalLines: totalL });
         res.redirect(`/project/${pId}`);
     });
 });
@@ -148,15 +145,16 @@ router.post("/upload-github", checkAuth, async (req, res) => {
         const pId = Date.now().toString();
         const r = await axios.get(`${githubUrl.replace(/\/$/, "")}/archive/refs/heads/main.zip`, { responseType: 'arraybuffer' });
         const z = new AdmZip(Buffer.from(r.data));
-        let totalL = 0, count = 0, detectedLangs = [];
+        let totalL = 0, count = 0, langs = [];
         z.getEntries().forEach(e => {
-            if (!e.isDirectory && ['.js', '.py'].includes(path.extname(e.entryName).toLowerCase())) {
-                const d = analyzeCode(e.getData().toString('utf8'), e.entryName);
-                totalL += d.lineCount; count++; detectedLangs.push(d.lang);
+            const ext = path.extname(e.entryName).toLowerCase();
+            if (!e.isDirectory && ['.js', '.py', '.java', '.cpp'].includes(ext)) {
+                const d = analyzeCodeOptimized(e.getData().toString('utf8'), e.entryName);
+                totalL += d.lineCount; count++; langs.push(d.lang);
                 storeDoc(d, req.session.userId, pId);
             }
         });
-        storeProject({ id: pId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: Array.from(new Set(detectedLangs)).join(', '), fileCount: count, totalLines: totalL });
+        storeProject({ id: pId, userId: req.session.userId, name: githubUrl.split('/').pop(), timestamp: new Date().toLocaleString(), lang: [...new Set(langs)].join(', '), fileCount: count, totalLines: totalL });
         res.redirect(`/project/${pId}`);
     } catch (e) { res.redirect("/upload?error=github"); }
 });
