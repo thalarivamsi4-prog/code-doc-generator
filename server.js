@@ -1,31 +1,33 @@
+require("dotenv").config();
 const express = require("express");
-const path = require("path");
 const session = require("express-session");
-const userRoutes = require("./routes/user");
+const path = require("path");
 
 const app = express();
-const PORT = 3000;
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, "public")));
-
-// Session Configuration
-app.use(session({
-    secret: "codedocgen_secret_key_2026",
-    resave: false,
-    saveUninitialized: false,
-    cookie: { maxAge: 24 * 60 * 60 * 1000 } // 24 hours
-}));
-
-// View Engine
+// Config
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
 
-// Routes
+// Middleware
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+app.use(express.static("public"));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(session({
+    secret: "ai-mentor-secret",
+    resave: false,
+    saveUninitialized: false,
+    cookie: { maxAge: 24 * 60 * 60 * 1000 }
+}));
+
+// Route Handlers
+const userRoutes = require("./routes/user");
 app.use("/", userRoutes);
 
+const PORT = process.env.PORT || 3000;
+
 app.listen(PORT, () => {
-    console.log(`🚀 CodeDocGen Server running on http://localhost:${PORT}`);
+    console.log(`\n🚀 CodeDocGen AI Mentor running on http://localhost:${PORT}`);
+    console.log(`🛠️ Mode: Intelligent Documentation Analysis\n`);
 });
