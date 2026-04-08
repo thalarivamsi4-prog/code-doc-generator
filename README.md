@@ -2,6 +2,9 @@
 
 > **"Turning Complex Code into Human Clarity."**
 
+![Status: Analysis Active](https://img.shields.io/badge/Status-Analysis_Active-d97706?style=for-the-badge)
+![Last Build: 2026-04-08](https://img.shields.io/badge/Last_Build-April_2026-1e293b?style=for-the-badge)
+
 CodeDocGen is a high-performance documentation suite designed for modern engineering teams. It bridges the gap between raw source code and professional technical reports by using heuristic AI to analyze logic intent and behavioral patterns.
 
 ---
