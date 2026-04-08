@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teacher's Insight: <%= result.fileName %> | CodeDocGen</title>
+    <title>Intelligence Report: <%= result.fileName %> | CodeDocGen</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet"
@@ -12,22 +12,33 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <link rel="stylesheet" href="/style.css">
     <style>
-        .mentor-badge {
-            background: linear-gradient(135deg, #d97706, #f59e0b);
-            color: white;
-            padding: 0.5rem 1.25rem;
+        .intel-summary {
+            background: #fff;
             border-radius: 2rem;
-            font-size: 0.8rem;
-            font-weight: 800;
-            text-transform: uppercase;
+            padding: 2.5rem;
+            border: 1px solid var(--card-border);
+            position: relative;
+            overflow: hidden;
         }
 
-        .lecture-card {
-            background: #fff;
-            border-left: 5px solid var(--primary);
-            padding: 2rem;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.05);
+        .intel-summary::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 6px;
+            height: 100%;
+            background: var(--primary);
+        }
+
+        .ai-badge {
+            background: var(--primary-glow);
+            color: var(--primary);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
         }
 
         code {
@@ -46,57 +57,56 @@
 
 <body>
     <nav class="nav">
-        <a href="/" class="nav-brand"><i class="fa-solid fa-graduation-cap"></i> CodeDocGen AI Mentor</a>
+        <a href="/" class="nav-brand"><i class="fa-solid fa-brain"></i> CodeDocGen Pro</a>
         <div class="nav-links">
             <a href="/dashboard">Library</a>
-            <a href="/upload">New Intake</a>
-            <a href="/logout" class="ms-3 text-secondary">Logout</a>
+            <a href="/upload">Intelligence Intake</a>
+            <a href="/logout" class="ms-4 text-secondary small">Logout</a>
         </div>
     </nav>
 
     <div class="container py-5">
         <div class="row g-5">
-            <!-- Mentor's Lecture Sidebar -->
             <div class="col-lg-7">
-                <div class="mb-4 d-flex align-items-center gap-3">
-                    <span class="mentor-badge">Teacher's Insight</span>
-                    <h1 class="fw-bold mb-0">
-                        <%= result.fileName %>
-                    </h1>
-                </div>
-
-                <div class="lecture-card mb-5">
-                    <h5 class="fw-bold text-dark"><i class="fa-solid fa-book-open-reader me-2 text-primary"></i>
-                        Mentor's Session Summary</h5>
-                    <p class="text-secondary mb-0 mt-3">
-                        Today, we are look at a **<%= result.lang %>** module. Think of this file as a specific chapter
-                            in your project's story.
-                            We detected **<%= result.metrics.componentCount %> key logic points** that define how this
-                                part of the app behaves.
-                                Professional code like this relies on modularity—breaking big problems into small,
-                                understandable pieces.
-                                Let’s walk through what the teacher found in your code below.
+                <!-- STRONG UPGRADE 3: EXECUTIVE FILE SUMMARY -->
+                <div class="intel-summary mb-5">
+                    <div class="d-flex align-items-center gap-3 mb-4">
+                        <span class="ai-badge"><i class="fa-solid fa-sparkles"></i> AI Executive Summary</span>
+                        <h2 class="fw-bold mb-0">
+                            <%= result.fileName %>
+                        </h2>
+                    </div>
+                    <p class="text-secondary line-height-relaxed mb-0">
+                        This module has been identified as a <strong>
+                            <%= result.lang %>
+                        </strong> component.
+                        Its primary role in your architecture is <strong>Logical Encapsulation</strong>.
+                        We detected <strong>
+                            <%= result.metrics.componentCount %> intelligence points
+                        </strong>.
+                        Pro-Tip: Files of this scale (<strong>
+                            <%= result.metrics.lineCount %> lines
+                        </strong>) are ideal for maintenance; they are focused, modular, and easy to unit test.
                     </p>
                 </div>
 
-                <h4 class="fw-bold mb-4"><i class="fa-solid fa-chalkboard-user text-primary me-2"></i> File Walkthrough
-                </h4>
+                <h4 class="fw-bold mb-4 px-3"><i class="fa-solid fa-chalkboard-user text-primary me-2"></i> Logic
+                    Deep-Dive</h4>
                 <div class="row g-3">
                     <% result.functions.forEach(f=> { %>
                         <div class="col-12">
-                            <div class="glass-card"
-                                style="padding: 1.5rem; border-left: 3px solid var(--primary-glow);">
-                                <div class="d-flex align-items-center gap-3 mb-3">
+                            <div class="glass-card" style="padding: 1.5rem;">
+                                <div class="d-flex align-items-center gap-3 mb-2">
                                     <div
-                                        style="background: var(--primary-glow); color: var(--primary); width: 35px; height: 35px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
-                                        <i class="fa-solid fa-lightbulb"></i>
+                                        style="background: var(--primary-glow); color: var(--primary); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fa-solid fa-code-commit"></i>
                                     </div>
                                     <h6 class="fw-bold mb-0">
                                         <%= f.name %>
                                     </h6>
                                     <span class="ms-auto text-muted small">Line <%= f.line %></span>
                                 </div>
-                                <p class="text-secondary small line-height-relaxed">
+                                <p class="text-secondary small mb-0">
                                     <%= f.explanation %>
                                 </p>
                             </div>
@@ -105,28 +115,28 @@
                 </div>
             </div>
 
-            <!-- VS Code Style Viewer -->
+            <!-- Visual Code Viewer -->
             <div class="col-lg-5">
-                <h4 class="fw-bold mb-4"><i class="fa-solid fa-code text-primary me-2"></i> The Blackboard</h4>
+                <h4 class="fw-bold mb-4"><i class="fa-solid fa-terminal text-primary"></i> The Source Core</h4>
                 <div class="editor-shell" style="border-radius: 1.5rem; overflow: hidden; border: 1px solid #3e4451;">
-                    <div class="editor-header d-flex align-items-center"
+                    <div class="editor-header d-flex align-items-center justify-content-between"
                         style="background: #21252b; padding: 1rem 1.5rem;">
                         <div class="d-flex gap-2">
                             <div style="width: 12px; height: 12px; border-radius: 50%; background: #ff5f56;"></div>
                             <div style="width: 12px; height: 12px; border-radius: 50%; background: #ffbd2e;"></div>
                             <div style="width: 12px; height: 12px; border-radius: 50%; background: #27c93f;"></div>
                         </div>
-                        <span class="ms-3 small text-muted font-monospace">
-                            <%= result.fileName %>
+                        <span class="badge bg-dark text-muted font-monospace small">
+                            <%= result.lang %>
                         </span>
                     </div>
                     <pre><code class="language-<%= result.lang %>"><%= code %></code></pre>
                 </div>
 
                 <div class="mt-4">
-                    <a href="/download-pdf/<%= result.id %>" class="btn btn-primary w-100 py-3 mb-2"
+                    <a href="/download-pdf/<%= result.id %>" class="btn btn-secondary w-100 py-3"
                         style="border-radius: 1.5rem;">
-                        <i class="fa-solid fa-file-pdf me-2"></i> Export Academic Report
+                        <i class="fa-solid fa-download me-2"></i> Download Technical Specs
                     </a>
                 </div>
             </div>
