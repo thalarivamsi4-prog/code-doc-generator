@@ -84,6 +84,21 @@ router.get("/", (req, res) => res.render("home", { user: req.session.username })
 router.get("/upload", checkAuth, (req, res) => res.render("upload", { user: req.session.username }));
 router.get("/dashboard", checkAuth, (req, res) => res.render("dashboard", { projects: getStoredProjects(req.session.userId), user: req.session.username }));
 
+// --- GLOBAL ADMIN ANALYTICS ---
+router.get("/admin", checkAuth, (req, res) => {
+    try {
+        const stats = {
+            totalUsers: db.prepare("SELECT COUNT(*) as count FROM users").get().count,
+            totalProjects: db.prepare("SELECT COUNT(*) as count FROM projects").get().count,
+            totalDocs: db.prepare("SELECT COUNT(*) as count FROM docs").get().count
+        };
+        res.render("admin", { stats, user: req.session.username });
+    } catch (e) {
+        console.error("Admin Access Error:", e);
+        res.redirect("/dashboard");
+    }
+});
+
 router.get("/delete-project/:id", checkAuth, (req, res) => {
     db.prepare("DELETE FROM projects WHERE id = ? AND userId = ?").run(req.params.id, req.session.userId);
     db.prepare("DELETE FROM docs WHERE projectId = ? AND userId = ?").run(req.params.id, req.session.userId);
